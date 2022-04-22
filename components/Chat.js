@@ -1,35 +1,41 @@
 import React from 'react';
-import { View, Platform, KeyboardAvoidingView, StyleSheet } from 'react-native';
-import { Bubble, GiftedChat, InputToolbar } from 'react-native-gifted-chat';
+import { View, Platform, KeyboardAvoidingView, StyleSheet, Button, Image } from 'react-native';
+import { Bubble, GiftedChat, InputToolbar, Actions } from 'react-native-gifted-chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import MapView from 'react-native-maps';
+import CustomActions from './CustomActions';
+import 'firebase/firestore';
+import firebase from 'firebase/app';
 
+// const firebase = require('firebase');
+// require('firebase/firestore');
 
-const firebase = require('firebase');
-require('firebase/firestore');
-//imports firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyBgC4COn6SOlJIhMRLc0jxJIqwj0AXyXDc",
+    authDomain: "chatty-478ad.firebaseapp.com",
+    projectId: "chatty-478ad",
+    storageBucket: "chatty-478ad.appspot.com",
+    messagingSenderId: "126951501896",
+};
 export default class Chat extends React.Component {
   constructor() {
     super();
     this.state = {
       messages: [],
-      uid: 0,
+      uid: null,
       user: {
         _id: '',
         name: '',
         avatar: '',
       },
-      isConnected: false
+      isConnected: false,
+      image: null,
+      location: null,
     };
 
     if (!firebase.apps.length){
-      firebase.initializeApp({
-      apiKey: "AIzaSyBgC4COn6SOlJIhMRLc0jxJIqwj0AXyXDc",
-      authDomain: "chatty-478ad.firebaseapp.com",
-      projectId: "chatty-478ad",
-      storageBucket: "chatty-478ad.appspot.com",
-      messagingSenderId: "126951501896",
-      });
+      firebase.initializeApp(firebaseConfig);
     }
 
     this.referenceChatMessages = firebase.firestore().collection('messages');
@@ -91,10 +97,10 @@ export default class Chat extends React.Component {
               _id: user.uid,
               name: name,
               avatar: 'https://placeimg.com/140/140/any',
-            }
+            },
           });//updates the user state with currently active user data
 
-          //this.referenceChatMessagesUser = firebase.firestore().collection('messages').where('uid', '==', this.state.uid);
+          this.referenceChatMessagesUser = firebase.firestore().collection('messages').where('uid', '==', this.state.uid);
         //takes a snapshot of the collection(texts) it documents at the precise moment it's called
 
         }); //updates collection
@@ -118,16 +124,18 @@ export default class Chat extends React.Component {
       messages.push({
         _id: data._id,
         createdAt: data.createdAt.toDate(),
-        text: data.text,
+        text: data.text || '',
         user: {
           _id: data.user._id,
           name: data.user.name,
           avatar: data.user.avatar,
-        }
+        },
+        image: data.image || null,
+        location: data.location || null,
       });
     });
     this.setState({
-      messages:messages,
+      messages: messages,
     });
     this.saveMessages();
   };
@@ -138,8 +146,10 @@ export default class Chat extends React.Component {
     this.referenceChatMessages.add({
       _id: message._id,
       createdAt: message.createdAt,
-      text: message.text,
-      user: this.state.user
+      text: message.text || '',
+      user: this.state.user,
+      image: message.image || null,
+      location: message.location || null,
     });
   } //adds messages to database
 
@@ -182,12 +192,41 @@ export default class Chat extends React.Component {
     )
   }
 
+  
+
+  renderCustomActions = (props) => {
+    return <CustomActions {...props} />;
+  };
+
+  renderCustomView (props) {
+    const { currentMessage } = props;
+    if (currentMessage.location) {
+      return (
+        <MapView
+          style={{width: 150,
+            height: 100,
+            borderRadius: 13,
+            margin: 3}}
+          region={{
+            latitude: currentMessage.location.latitude,
+            longitude: currentMessage.location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        />
+      );
+    }
+    return null;
+  }
+
   render() {
 
     let chatBackground= this.props.route.params.chatBackground //allows the chatBackground color to be changed
     return (
       <View style={{flex: 1, backgroundColor: chatBackground}}>
         <GiftedChat
+          renderCustomView={this.renderCustomView}
+          renderActions={this.renderCustomActions}
           renderBubble={this.renderBubble.bind(this)}
           renderInputToolbar={this.renderInputToolbar.bind(this)}
           messages={this.state.messages}
